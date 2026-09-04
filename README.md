@@ -1,5 +1,9 @@
 # cc-caffeine ☕⚡
 
+> [!CAUTION]
+> DEPRECATED AND UNMAINTAINED - Please use [Amphetamine](https://apps.apple.com/us/app/amphetamine/id937984704?mt=12) instead.
+> Amphetamine supports keep-awake while screen is closed and session locked. Amphetamine can be disabled when battery fall below 10%.
+
 **Transform your 9-to-5 into 9:30-to-4:30.** Arrive 30min later, leave 30min earlier, while getting the same work done because **Claude Code stays powered in your backpack while commuting.**
 
 Work smarter, not longer.
