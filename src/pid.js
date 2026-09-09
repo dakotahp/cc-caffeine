@@ -143,12 +143,12 @@ const validatePid = async pid => {
     const isWindows = os.platform() === 'win32';
     const psCommand = isWindows
       ? spawn('wmic', ['process', 'where', `processid=${pid}`, 'get', 'commandline'], {
-          stdio: 'pipe'
-        })
+        stdio: 'pipe'
+      })
       : // -ww disables ps's column truncation. Without it the command line is cut
-        // at the terminal width, and long install paths (npx cache dirs are well
-        // over 80 characters) lose the "caffeine.js server" suffix matched below.
-        spawn('ps', ['-ww', '-p', String(pid), '-o', 'command='], { stdio: 'pipe' });
+    // at the terminal width, and long install paths (npx cache dirs are well
+    // over 80 characters) lose the "caffeine.js server" suffix matched below.
+      spawn('ps', ['-ww', '-p', String(pid), '-o', 'command='], { stdio: 'pipe' });
 
     let output = '';
 
@@ -235,7 +235,7 @@ const isStartupInProgress = async () => {
     }
 
     return Date.now() - startedAt < STARTUP_GRACE_MS;
-  } catch (error) {
+  } catch {
     return false; // No marker, or unreadable - treat as no startup underway
   }
 };

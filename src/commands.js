@@ -94,7 +94,7 @@ const handleVersion = () => {
     try {
       const pluginData = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
       pluginVersion = pluginData.version || 'unknown';
-    } catch (error) {
+    } catch {
       pluginVersion = 'not found';
     }
 
