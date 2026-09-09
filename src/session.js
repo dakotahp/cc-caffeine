@@ -74,6 +74,7 @@ const addSessionWithLock = async sessionId => {
     }
 
     // Add or update the session
+    let isNewSession = false;
     if (data.sessions[sessionId]) {
       // Update existing session's last_activity only
       data.sessions[sessionId].last_activity = now;
@@ -84,16 +85,13 @@ const addSessionWithLock = async sessionId => {
         last_activity: now,
         project_dir: process.env.CLAUDE_PROJECT_DIR
       };
+      isNewSession = true;
     }
 
     // Write updated data while still holding the lock
     data.last_updated = now;
     fs.writeFileSync(SESSIONS_FILE, JSON.stringify(data, null, 2));
 
-    const isNewSession =
-      !data.sessions[sessionId] ||
-      (data.sessions[sessionId].created_at === now &&
-        data.sessions[sessionId].last_activity === now);
     const action = isNewSession ? 'added' : 'updated';
 
     // console.error(`Cleaned up ${removedCount} expired sessions and ${action} session: ${sessionId}`);
