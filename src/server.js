@@ -71,10 +71,14 @@ const startServerProcess = async () => {
 
   const cwd = path.join(__dirname, '..');
 
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+
   const serverProcess = spawn('npm', ['run', 'server'], {
     detached: true,
     stdio: 'ignore',
-    cwd // is needed to find the correct caffeine.js
+    cwd, // is needed to find the correct caffeine.js
+    env
   });
 
   serverProcess.unref();
@@ -184,11 +188,15 @@ const startServer = async () => {
 const spawnElectronProcess = () => {
   const cwd = path.join(__dirname, '..');
 
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+
   const electronProcess = spawn('npx', ['electron', 'caffeine.js', 'server'], {
     stdio: 'inherit',
     shell: true,
     detached: false,
-    cwd // is needed to find caffeine.js
+    cwd, // is needed to find caffeine.js
+    env
   });
 
   electronProcess.on('exit', code => {
