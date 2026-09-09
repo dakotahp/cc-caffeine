@@ -42,23 +42,23 @@ const main = async () => {
   const command = process.argv[2];
 
   switch (command) {
-    case 'caffeinate':
-      await handleCaffeinate();
-      break;
-    case 'uncaffeinate':
-      await handleUncaffeinate();
-      break;
-    case 'server':
-      await handleServer();
-      break;
-    case 'status':
-      await handleStatus();
-      break;
-    case 'version':
-      await handleVersion();
-      break;
-    default:
-      await handleUsage();
+  case 'caffeinate':
+    await handleCaffeinate();
+    break;
+  case 'uncaffeinate':
+    await handleUncaffeinate();
+    break;
+  case 'server':
+    await handleServer();
+    break;
+  case 'status':
+    await handleStatus();
+    break;
+  case 'version':
+    await handleVersion();
+    break;
+  default:
+    await handleUsage();
   }
 };
 

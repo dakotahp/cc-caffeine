@@ -63,7 +63,7 @@ const preventWindowCreation = () => {
   if (app.dock && typeof app.dock.hide === 'function') {
     try {
       app.dock.hide();
-    } catch (error) {
+    } catch {
       // Silently ignore if not macOS or other error
     }
   }
