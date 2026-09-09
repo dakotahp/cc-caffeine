@@ -1,0 +1,89 @@
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const makeTempHome = () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-caffeine-pid-'));
+  os.homedir = () => home;
+  fs.mkdirSync(path.join(home, '.claude', 'plugins', 'cc-caffeine'), { recursive: true });
+  return home;
+};
+
+const loadPid = () => {
+  delete require.cache[require.resolve('../src/pid')];
+  return require('../src/pid');
+};
+
+test('readPidFile returns null when no PID file exists', async () => {
+  makeTempHome();
+  const { readPidFile } = loadPid();
+
+  assert.strictEqual(await readPidFile(), null);
+});
+
+test('writePidFile then readPidFile round-trips', async () => {
+  makeTempHome();
+  const { writePidFile, readPidFile } = loadPid();
+
+  await writePidFile(12345);
+
+  assert.strictEqual(await readPidFile(), 12345);
+});
+
+test('readPidFile returns null for non-numeric content', async () => {
+  const home = makeTempHome();
+  const pidFile = path.join(home, '.claude', 'plugins', 'cc-caffeine', 'server.pid');
+  fs.writeFileSync(pidFile, 'not-a-number');
+
+  const { readPidFile } = loadPid();
+
+  assert.strictEqual(await readPidFile(), null);
+});
+
+test('validatePid returns false for a dead PID', async () => {
+  makeTempHome();
+  const { validatePid } = loadPid();
+
+  assert.strictEqual(await validatePid(999999), false);
+});
+
+test('validatePid returns false for a live non-caffeine process', async () => {
+  makeTempHome();
+  const { validatePid } = loadPid();
+
+  assert.strictEqual(await validatePid(process.pid), false);
+});
+
+test('isStartupInProgress is false with no marker', async () => {
+  makeTempHome();
+  const { isStartupInProgress } = loadPid();
+
+  assert.strictEqual(await isStartupInProgress(), false);
+});
+
+test('markStartupInProgress then isStartupInProgress is true', async () => {
+  makeTempHome();
+  const { markStartupInProgress, isStartupInProgress } = loadPid();
+
+  await markStartupInProgress();
+
+  assert.strictEqual(await isStartupInProgress(), true);
+});
+
+test('withPidLock runs the provided function and returns its value', async () => {
+  makeTempHome();
+  const { withPidLock } = loadPid();
+
+  const result = await withPidLock(async () => 42);
+
+  assert.strictEqual(result, 42);
+});
+
+test('isServerRunning is false when no PID file exists', async () => {
+  makeTempHome();
+  const { isServerRunning } = loadPid();
+
+  assert.strictEqual(await isServerRunning(), false);
+});
