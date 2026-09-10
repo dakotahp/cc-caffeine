@@ -22,7 +22,7 @@ const {
   markStartupInProgress
 } = require('./pid');
 
-const CHECK_INTERVAL = 5 * 1000; // 10 seconds
+const CHECK_INTERVAL = 5 * 1000; // 5 seconds
 
 /**
  * Ensure server is running, start if needed
