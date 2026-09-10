@@ -150,7 +150,7 @@ const handleStatus = async () => {
  * Show usage help
  */
 const handleUsage = () => {
-  console.error('Usage: npx electron caffeine.js [caffeinate|uncaffeinate|server|status|version]');
+  console.error('Usage: node caffeine.js [caffeinate|uncaffeinate|server|status|version]');
   console.error('');
   console.error('Commands:');
   console.error('  caffeinate [session_id]   - Enable caffeine for current session');
