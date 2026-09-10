@@ -1,13 +1,18 @@
 /**
- * System Tray module - Handles all system tray functionality
+ * System Tray module - Handles the UI (system tray indicator)
+ *
+ * UI only. The sleep-prevention mechanism lives in backend.js and the
+ * decision logic in poller.js. The tray reacts to state changes via the
+ * `onStateChange` callback the poller is wired with, so this module never
+ * imports the poller (no cycle).
  */
 
 const path = require('path');
 
-const { getActiveSessionsWithLock, cleanupExpiredSessionsWithLock } = require('./session');
 const { getElectron } = require('./electron');
 const { getConfig } = require('./config');
 const { removePidFileWithLock } = require('./pid');
+const { disableCaffeine } = require('./backend');
 const package = require('../package.json');
 
 let trayState = null;
@@ -124,83 +129,6 @@ const updateTrayIcon = state => {
 };
 
 /**
- * Enable caffeine (prevent sleep)
- */
-const enableCaffeine = state => {
-  if (!state.isCaffeinated) {
-    const { powerSaveBlocker } = getElectron();
-    state.isCaffeinated = true;
-    state.powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension');
-  }
-};
-
-/**
- * Disable caffeine (allow sleep)
- */
-const disableCaffeine = state => {
-  if (state.isCaffeinated) {
-    const { powerSaveBlocker } = getElectron();
-    state.isCaffeinated = false;
-    if (state.powerSaveBlockerId !== null) {
-      powerSaveBlocker.stop(state.powerSaveBlockerId);
-      state.powerSaveBlockerId = null;
-    }
-  }
-};
-
-/**
- * Update caffeine status based on active sessions
- */
-const updateCaffeineStatus = async state => {
-  if (!state) {
-    return;
-  }
-
-  try {
-    await cleanupExpiredSessionsWithLock();
-    const activeSessions = await getActiveSessionsWithLock();
-    const shouldCaffeinate = activeSessions.length > 0;
-
-    if (shouldCaffeinate && !state.isCaffeinated) {
-      enableCaffeine(state);
-    } else if (!shouldCaffeinate && state.isCaffeinated) {
-      disableCaffeine(state);
-    }
-
-    updateTrayIcon(state);
-  } catch (error) {
-    console.error('Error updating caffeine status:', error);
-  }
-};
-
-/**
- * Start polling for session changes
- */
-const startPolling = (state, interval = 10000) => {
-  // Initial check
-  updateCaffeineStatus(state);
-
-  // Set up periodic polling
-  state.pollInterval = setInterval(() => {
-    updateCaffeineStatus(state);
-  }, interval);
-};
-
-/**
- * Stop polling
- */
-const stopPolling = state => {
-  if (state && state.pollInterval) {
-    try {
-      clearInterval(state.pollInterval);
-      state.pollInterval = null;
-    } catch (error) {
-      console.error('Error clearing interval:', error.message);
-    }
-  }
-};
-
-/**
  * Shutdown server and clean up resources
  */
 const shutdownServer = async state => {
@@ -211,8 +139,10 @@ const shutdownServer = async state => {
     return;
   }
 
-  // Stop polling
-  stopPolling(state);
+  // Stop polling (reference stored on the state by the poller)
+  if (state.stopPolling) {
+    state.stopPolling();
+  }
 
   // Always disable caffeine before shutting down
   try {
@@ -248,10 +178,5 @@ module.exports = {
   getSystemTray,
   getSystemTrayState,
   updateTrayIcon,
-  enableCaffeine,
-  disableCaffeine,
-  updateCaffeineStatus,
-  startPolling,
-  stopPolling,
   shutdownServer
 };

@@ -6,7 +6,8 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const { initSessionsFile } = require('./session');
-const { getSystemTray, startPolling, shutdownServer } = require('./system-tray');
+const { getSystemTray, updateTrayIcon, shutdownServer } = require('./system-tray');
+const { startPolling } = require('./poller');
 const {
   isRunningInElectron,
   preventWindowCreation,
@@ -156,7 +157,7 @@ const startServer = async () => {
   try {
     await initSessionsFile();
     const state = getSystemTray();
-    startPolling(state, CHECK_INTERVAL);
+    startPolling(state, CHECK_INTERVAL, updateTrayIcon);
     console.error('Caffeine server started successfully with system tray');
 
     // Only setup signal handlers if server actually started
