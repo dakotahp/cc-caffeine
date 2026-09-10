@@ -1,0 +1,15 @@
+{
+  "name": "cc-caffeine",
+  "description": "Prevents your computer from sleeping while Claude Code works hard",
+  "owner": {
+    "name": "Samuel Berthe",
+    "email": "hey@samuel-berthe.fr"
+  },
+  "plugins": [
+    {
+      "name": "cc-caffeine",
+      "source": "./",
+      "description": "Prevents your computer from sleeping while Claude Code works hard"
+    }
+  ]
+}
