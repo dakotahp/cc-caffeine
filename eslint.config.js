@@ -32,5 +32,16 @@ module.exports = [
       'brace-style': ['error', '1tbs'],
       curly: 'error'
     }
+  },
+  {
+    files: ['**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        ...globals.node,
+        ...globals.browser
+      }
+    }
   }
 ];

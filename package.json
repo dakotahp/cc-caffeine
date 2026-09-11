@@ -15,7 +15,7 @@
     "server": "npx electron caffeine.js server",
     "native-server": "node caffeine.js server",
     "test": "node --test",
-    "lint": "eslint --fix *.js src/*.js test/*.js || echo 'eslint not installed'",
+    "lint": "eslint --fix *.js src/*.js test/*.js opencode/*.mjs || echo 'eslint not installed'",
     "format": "prettier --write *.js src/*.js || echo 'prettier not installed'"
   },
   "keywords": [
