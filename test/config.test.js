@@ -21,6 +21,7 @@ test('getConfig returns defaults when no config file exists', () => {
 
   assert.strictEqual(config.session_timeout_minutes, 15);
   assert.strictEqual(config.icon_theme, 'orange');
+  assert.strictEqual(config.sleep_backend, 'electron');
 });
 
 test('getConfig merges user config over defaults', () => {
