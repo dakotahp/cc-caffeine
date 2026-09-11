@@ -1,9 +1,5 @@
 # cc-caffeine ☕⚡
 
-> [!CAUTION]
-> **DEPRECATED AND UNMAINTAINED** - Please use [Amphetamine](https://apps.apple.com/us/app/amphetamine/id937984704?mt=12) instead.
-> Amphetamine supports keep-awake while screen is closed and session locked. Amphetamine can be disabled when battery fall below 10%.
-
 **Transform your 9-to-5 into 9:30-to-4:30.** Arrive 30min later, leave 30min earlier, while getting the same work done because **Claude Code stays powered in your backpack while commuting.**
 
 Work smarter, not longer.
@@ -23,10 +19,16 @@ Tired of your laptop going to sleep during that perfect coding session because y
 
 ## 🎯 Installation
 
+Add this repo as a Claude Code plugin marketplace, then install the plugin:
+
 ```bash
-/plugin marketplace add samber/cc
-/plugin install cc-caffeine@samber
+/plugin marketplace add dakotahp/cc-caffeine
+/plugin install cc-caffeine@cc-caffeine
 ```
+
+Installing the plugin registers its hooks automatically, so no manual hook
+configuration is needed. The hooks run the plugin's own bundled `caffeine.js`
+(via `${CLAUDE_PLUGIN_ROOT}`), so no `npx` fetch is required.
 
 *cc-caffine status*:
 
@@ -74,70 +76,71 @@ Tired of your laptop going to sleep during that perfect coding session because y
 
 Hooks will be configured automatically if you import the project as a Claude Code plugin.
 
-Otherwise, configure your Claude Code hooks for a seamless experience:
+Otherwise, configure your Claude Code hooks manually, pointing each command at the
+local `caffeine.js` (replace `/path/to/cc-caffeine` with your checkout):
 
 ```json
 {
-  "UserPromptSubmit": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx cc-caffeine caffeinate"
-        }
-      ]
-    }
-  ],
-  "PreToolUse": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx cc-caffeine caffeinate"
-        }
-      ]
-    }
-  ],
-  "PostToolUse": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx cc-caffeine caffeinate"
-        }
-      ]
-    }
-  ],
-  "Notification": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx cc-caffeine uncaffeinate"
-        }
-      ]
-    }
-  ],
-  "Stop": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx cc-caffeine uncaffeinate"
-        }
-      ]
-    }
-  ],
-  "SessionEnd": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx cc-caffeine uncaffeinate"
-        }
-      ]
-    }
-  ]
+   "UserPromptSubmit": [
+     {
+       "hooks": [
+         {
+           "type": "command",
+           "command": "node /path/to/cc-caffeine/caffeine.js caffeinate"
+         }
+       ]
+     }
+   ],
+   "PreToolUse": [
+     {
+       "hooks": [
+         {
+           "type": "command",
+           "command": "node /path/to/cc-caffeine/caffeine.js caffeinate"
+         }
+       ]
+     }
+   ],
+   "PostToolUse": [
+     {
+       "hooks": [
+         {
+           "type": "command",
+           "command": "node /path/to/cc-caffeine/caffeine.js caffeinate"
+         }
+       ]
+     }
+   ],
+   "Notification": [
+     {
+       "hooks": [
+         {
+           "type": "command",
+           "command": "node /path/to/cc-caffeine/caffeine.js uncaffeinate"
+         }
+       ]
+     }
+   ],
+   "Stop": [
+     {
+       "hooks": [
+         {
+           "type": "command",
+           "command": "node /path/to/cc-caffeine/caffeine.js uncaffeinate"
+         }
+       ]
+     }
+   ],
+   "SessionEnd": [
+     {
+       "hooks": [
+         {
+           "type": "command",
+           "command": "node /path/to/cc-caffeine/caffeine.js uncaffeinate"
+         }
+       ]
+     }
+   ]
 }
 ```
 
@@ -157,27 +160,29 @@ cc-caffeine uses an intelligent client-server approach:
 
 ## 🚀 Run without Claude Code
 
+Run from the repo directory (after `npm install`):
+
 ```bash
 # Start server + system tray
 # (optional - will be started automatically)
-npx cc-caffeine server
+node caffeine.js server
 
 claude -p 'Write 10 pages of "lorem ipsum"'
 
-npx cc-caffeine status
+node caffeine.js status
 ```
 
 Manual switch:
 
 ```bash
 # Activate caffeine for your coding session
-echo '{"session_id": "session-abcd"}' | npx cc-caffeine caffeinate
+echo '{"session_id": "session-abcd"}' | node caffeine.js caffeinate
 
 # Your session is now protected!
 # Claude can keep working while you sip coffee
 
 # When you're done (or after 15 minutes of auto-cleanup)
-echo '{"session_id": "session-abcd"}' | npx cc-caffeine uncaffeinate
+echo '{"session_id": "session-abcd"}' | node caffeine.js uncaffeinate
 ```
 
 ## 💫 Fuel the Revolution
