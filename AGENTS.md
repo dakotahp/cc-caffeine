@@ -26,6 +26,7 @@ touching the others.
 9. **src/system-tray.js** - *UI*: the system tray indicator (`createIcon`/`createSystemTray`/`updateTrayIcon`/`getSystemTray`/`getSystemTrayState`/`shutdownServer`)
 10. **src/electron.js** - Wraps Electron-specific functionality, loaded on demand
 11. **src/config.js** - Reads user configuration from `~/.claude/plugins/cc-caffeine/config.json`
+12. **src/opencode.js** - OpenCode plugin core: maps OpenCode events to `caffeinate`/`uncaffeinate` CLI calls (shared with the Claude Code path); wrapped by the ESM adapter `opencode/cc-caffeine.mjs`
 
 ### The three concerns (mechanism / decision / UI)
 
