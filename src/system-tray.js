@@ -69,7 +69,7 @@ const createSystemTray = () => {
       {
         label: 'Github',
         click: () => {
-          getElectron().shell.openExternal('https://github.com/samber/cc-caffeine');
+          getElectron().shell.openExternal('https://github.com/dakotahp/cc-caffeine');
         }
       },
       {
