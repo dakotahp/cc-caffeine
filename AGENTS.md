@@ -20,11 +20,12 @@ touching the others.
 3. **src/session.js** - Session persistence with file locking and timeout handling
 4. **src/pid.js** - Atomic PID file operations and server-running checks
 5. **src/server.js** - Server process management and Electron integration
-6. **src/backend.js** - *Mechanism*: how sleep is prevented (`enableCaffeine`/`disableCaffeine`, currently `powerSaveBlocker`)
-7. **src/poller.js** - *Decision*: when to prevent/release sleep (`updateCaffeineStatus`/`startPolling`/`stopPolling`)
-8. **src/system-tray.js** - *UI*: the system tray indicator (`createIcon`/`createSystemTray`/`updateTrayIcon`/`getSystemTray`/`getSystemTrayState`/`shutdownServer`)
-9. **src/electron.js** - Wraps Electron-specific functionality, loaded on demand
-10. **src/config.js** - Reads user configuration from `~/.claude/plugins/cc-caffeine/config.json`
+6. **src/backend.js** - *Mechanism*: how sleep is prevented (`enableCaffeine`/`disableCaffeine`); dispatches to a backend by `sleep_backend` config
+7. **src/native.js** - *Native backend*: prevents sleep via the OS `caffeinate` utility (`enableCaffeine`/`disableCaffeine`/`setSpawnFn`)
+8. **src/poller.js** - *Decision*: when to prevent/release sleep (`updateCaffeineStatus`/`startPolling`/`stopPolling`)
+9. **src/system-tray.js** - *UI*: the system tray indicator (`createIcon`/`createSystemTray`/`updateTrayIcon`/`getSystemTray`/`getSystemTrayState`/`shutdownServer`)
+10. **src/electron.js** - Wraps Electron-specific functionality, loaded on demand
+11. **src/config.js** - Reads user configuration from `~/.claude/plugins/cc-caffeine/config.json`
 
 ### The three concerns (mechanism / decision / UI)
 
@@ -34,9 +35,10 @@ touching the others.
 | **Decision** | *when* to prevent/release (idle) | `src/poller.js` (`updateCaffeineStatus`/`startPolling`/`stopPolling`) |
 | **UI** | the system tray indicator | `src/system-tray.js` (`createIcon`/`createSystemTray`/`updateTrayIcon`/`getSystemTray`/`getSystemTrayState`/`shutdownServer`) |
 
-`backend.js` is the swappable seam: today it uses Electron's `powerSaveBlocker`,
-but it can be replaced by a native `caffeinate` backend without touching the
-decision or UI layers.
+`backend.js` is the swappable seam: it dispatches to a backend by the
+`sleep_backend` config setting. The default `electron` backend uses
+`powerSaveBlocker`; the `native` backend (`src/native.js`) prevents sleep via the
+OS `caffeinate` utility and runs without Electron.
 
 ### Breaking the poller ↔ system-tray cycle
 
@@ -73,6 +75,7 @@ imports `poller`. The callback is also the seam for a future "tray off" mode
 - Real-time status monitoring
 - Lightweight client commands (no Electron dependency for caffeinate/uncaffeinate)
 - Native sleep prevention using Electron's powerSaveBlocker API
+- Optional native backend (`caffeinate` utility) that runs without Electron
 - Hidden from macOS dock using app.dock.hide()
 
 ## Configuration
@@ -82,8 +85,9 @@ settings are optional and have sensible defaults.
 
 ```json
 {
-  "session_timeout_minutes": 15,
-  "icon_theme": "orange"
+   "session_timeout_minutes": 15,
+   "icon_theme": "orange",
+   "sleep_backend": "electron"
 }
 ```
 
@@ -93,13 +97,15 @@ settings are optional and have sensible defaults.
 |---------|---------|-------------|
 | `session_timeout_minutes` | `15` | Minutes of inactivity before a session expires |
 | `icon_theme` | `"orange"` | Tray icon theme: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
+| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker, with tray) or `"native"` (OS `caffeinate`, no Electron) |
 
 ## Technical Stack
 
 - **Node.js 18+** - Runtime environment (see `engines` in package.json)
 - **Electron 44+** - Cross-platform desktop application framework
 - **proper-lockfile** - File locking for all concurrent access with retry logic
-- **Electron powerSaveBlocker** - Native cross-platform sleep prevention
+- **Electron powerSaveBlocker** - Native cross-platform sleep prevention (default backend)
+- **OS `caffeinate`** - Sleep prevention for the native backend (no Electron)
 - **Electron Tray/Menu** - System tray functionality
 - **JSON file** - Session storage and communication
 - **setInterval** - Background polling for session changes
@@ -260,9 +266,10 @@ The application uses CommonJS modules with a clear dependency hierarchy:
 
 - `caffeine.js` imports from `src/commands.js` and `src/server.js`
 - `src/commands.js` imports from `src/session.js`, `src/pid.js`, `src/server.js`, and `src/config.js`
-- `src/server.js` imports from `src/session.js`, `src/pid.js`, `src/electron.js`, `src/system-tray.js`, and `src/poller.js`
+- `src/server.js` imports from `src/session.js`, `src/pid.js`, `src/electron.js`, `src/system-tray.js`, `src/poller.js`, and `src/config.js`
 - `src/poller.js` imports from `src/session.js` and `src/backend.js`
-- `src/backend.js` imports from `src/electron.js`
+- `src/backend.js` imports from `src/electron.js` and `src/native.js`
+- `src/native.js` provides the OS `caffeinate` backend on-demand
 - `src/system-tray.js` imports from `src/electron.js`, `src/config.js`, `src/pid.js`, and `src/backend.js`
 - `src/session.js` imports from `src/config.js`
 - `src/config.js` reads `~/.claude/plugins/cc-caffeine/config.json`
@@ -273,8 +280,9 @@ callback injection — see "Breaking the poller ↔ system-tray cycle" above).
 
 ## Sleep Prevention
 
-- Uses **Electron's powerSaveBlocker** for cross-platform sleep prevention
+- Uses **Electron's powerSaveBlocker** for cross-platform sleep prevention (default)
 - `powerSaveBlocker.start('prevent-app-suspension')` blocks system sleep and app suspension
+- The **native backend** (`sleep_backend: "native"`) prevents sleep via the OS `caffeinate` utility and runs without Electron
 - Automatically activates when sessions are active
 - Gracefully releases sleep prevention on shutdown
 - Works on Windows, macOS, and Linux
@@ -287,9 +295,10 @@ src/
 ├── commands.js          - Command-line interface and process management
 ├── session.js           - Session persistence and file locking
 ├── pid.js               - Atomic PID file operations and server checks
-├── server.js            - Server process management and Electron integration
-├── backend.js           - Mechanism: enableCaffeine / disableCaffeine
-├── poller.js            - Decision: updateCaffeineStatus / startPolling / stopPolling
+├── server.js             - Server process management and Electron integration
+├── backend.js            - Mechanism: enableCaffeine / disableCaffeine
+├── native.js             - Native backend: OS caffeinate utility
+├── poller.js             - Decision: updateCaffeineStatus / startPolling / stopPolling
 ├── system-tray.js       - UI: system tray indicator
 ├── electron.js          - Electron-specific functionality wrapper
 └── config.js            - User configuration reader
