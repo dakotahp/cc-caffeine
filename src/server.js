@@ -22,8 +22,11 @@ const {
   isStartupInProgress,
   markStartupInProgress
 } = require('./pid');
+const { getConfig } = require('./config');
 
 const CHECK_INTERVAL = 5 * 1000; // 5 seconds
+
+const getBackend = () => getConfig().sleep_backend;
 
 /**
  * Ensure server is running, start if needed
@@ -75,7 +78,10 @@ const startServerProcess = async () => {
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
 
-  const serverProcess = spawn('npm', ['run', 'server'], {
+  // The native backend runs as a plain Node process, no Electron.
+  const script = getBackend() === 'native' ? 'native-server' : 'server';
+
+  const serverProcess = spawn('npm', ['run', script], {
     detached: true,
     stdio: 'ignore',
     cwd, // is needed to find the correct caffeine.js
@@ -96,6 +102,7 @@ const startServerProcess = async () => {
 const handleServer = async () => {
   let mustStartServer = false;
   let mustStartElectron = false;
+  let mustStartNative = false;
 
   await withPidLock(async () => {
     try {
@@ -109,6 +116,10 @@ const handleServer = async () => {
       if (isRunningInElectron()) {
         mustStartServer = true;
         console.error('Already running inside Electron, starting server...');
+        await writePidFile(process.pid);
+      } else if (getBackend() === 'native') {
+        mustStartNative = true;
+        console.error('Native backend, starting server in this process...');
         await writePidFile(process.pid);
       } else {
         mustStartElectron = true;
@@ -125,7 +136,9 @@ const handleServer = async () => {
     }
   });
 
-  if (mustStartElectron) {
+  if (mustStartNative) {
+    await startServer();
+  } else if (mustStartElectron) {
     await spawnElectronProcess();
   } else if (mustStartServer) {
     await startServer();
@@ -136,9 +149,14 @@ const handleServer = async () => {
 };
 
 /**
- * Start server when already inside Electron
+ * Start the server. With the native backend this runs as a plain Node process
+ * (no Electron); with the Electron backend it boots the headless tray app.
  */
 const startServer = async () => {
+  if (getBackend() === 'native') {
+    return startNativeServer();
+  }
+
   console.error('Loading Electron...');
 
   // Prevent any window from being created
@@ -156,9 +174,22 @@ const startServer = async () => {
   // Start the actual server
   try {
     await initSessionsFile();
-    const state = getSystemTray();
-    startPolling(state, CHECK_INTERVAL, updateTrayIcon);
-    console.error('Caffeine server started successfully with system tray');
+
+    // The system tray is UI only. When Electron is unavailable it may fail;
+    // the server still runs headless.
+    let state;
+    let onStateChange;
+    try {
+      state = getSystemTray();
+      onStateChange = updateTrayIcon;
+      console.error('Caffeine server started successfully with system tray');
+    } catch (trayError) {
+      console.error('System tray unavailable, running headless:', trayError.message);
+      state = { isCaffeinated: false, powerSaveBlockerId: null, caffeinateProcess: null };
+      onStateChange = undefined;
+    }
+
+    startPolling(state, CHECK_INTERVAL, onStateChange);
 
     // Only setup signal handlers if server actually started
     if (state) {
@@ -179,6 +210,43 @@ const startServer = async () => {
     return state;
   } catch (error) {
     console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+/**
+ * Start the server as a plain Node process (native backend, no Electron).
+ */
+const startNativeServer = async () => {
+  console.error('Starting native caffeine server...');
+
+  try {
+    await initSessionsFile();
+
+    const state = {
+      isCaffeinated: false,
+      powerSaveBlockerId: null,
+      caffeinateProcess: null
+    };
+
+    startPolling(state, CHECK_INTERVAL);
+
+    process.on('SIGINT', async () => {
+      console.error('Received SIGINT, shutting down server...');
+      await shutdownServer(state);
+      process.exit(0);
+    });
+
+    process.on('SIGTERM', async () => {
+      console.error('Received SIGTERM, shutting down server...');
+      await shutdownServer(state);
+      process.exit(0);
+    });
+
+    console.error('Native caffeine server started successfully');
+    return state;
+  } catch (error) {
+    console.error('Failed to start native server:', error);
     process.exit(1);
   }
 };
