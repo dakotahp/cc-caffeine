@@ -87,3 +87,26 @@ test('isServerRunning is false when no PID file exists', async () => {
 
   assert.strictEqual(await isServerRunning(), false);
 });
+
+test('validatePid recognizes a native node caffeine server', async () => {
+  makeTempHome();
+  const { spawn } = require('child_process');
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-caffeine-validate-'));
+  const script = path.join(dir, 'caffeine.js');
+  fs.writeFileSync(script, 'setTimeout(() => {}, 10000);\n');
+
+  const child = spawn(process.execPath, [script, 'server'], {
+    detached: true,
+    stdio: 'ignore'
+  });
+  child.unref();
+
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const { validatePid } = loadPid();
+    assert.strictEqual(await validatePid(child.pid), true);
+  } finally {
+    child.kill();
+  }
+});
