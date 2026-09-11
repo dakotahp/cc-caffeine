@@ -11,7 +11,8 @@ const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
 const DEFAULTS = {
   session_timeout_minutes: 15,
-  icon_theme: 'orange' // 'orange' | 'monochrome'
+  icon_theme: 'orange', // 'orange' | 'monochrome'
+  sleep_backend: 'electron' // 'electron' | 'native'
 };
 
 let cachedConfig = null;

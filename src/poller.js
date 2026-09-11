@@ -25,9 +25,9 @@ const updateCaffeineStatus = async (state, onStateChange) => {
     const shouldCaffeinate = activeSessions.length > 0;
 
     if (shouldCaffeinate && !state.isCaffeinated) {
-      enableCaffeine(state);
+      await enableCaffeine(state);
     } else if (!shouldCaffeinate && state.isCaffeinated) {
-      disableCaffeine(state);
+      await disableCaffeine(state);
     }
 
     if (onStateChange) {

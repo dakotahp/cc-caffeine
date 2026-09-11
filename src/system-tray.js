@@ -146,7 +146,7 @@ const shutdownServer = async state => {
 
   // Always disable caffeine before shutting down
   try {
-    disableCaffeine(state);
+    await disableCaffeine(state);
   } catch (error) {
     console.error('Error disabling caffeine:', error.message);
   }

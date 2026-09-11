@@ -144,6 +144,48 @@ local `caffeine.js` (replace `/path/to/cc-caffeine` with your checkout):
 }
 ```
 
+## ⚙️ Configuration (Optional)
+
+cc-caffeine works out of the box with **zero configuration** — the default
+Electron backend needs nothing. To change behavior, create a config file at:
+
+```
+~/.claude/plugins/cc-caffeine/config.json
+```
+
+The directory is created automatically on first run, but the file itself is not —
+create it by hand and add only the settings you want. Every setting is optional
+and falls back to the default below.
+
+```json
+{
+  "session_timeout_minutes": 15,
+  "icon_theme": "orange",
+  "sleep_backend": "electron"
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `session_timeout_minutes` | `15` | Minutes of inactivity before a session expires |
+| `icon_theme` | `"orange"` | Tray icon theme: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
+| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the OS `caffeinate` utility, no Electron, no tray) |
+
+### Switching to the native backend
+
+Set `sleep_backend` to `"native"` to prevent sleep via the OS `caffeinate`
+utility instead of Electron. The server then runs as a plain Node process with
+no system tray — useful when you don't want Electron at all.
+
+```json
+{
+  "sleep_backend": "native"
+}
+```
+
+> The native backend relies on the `caffeinate` utility, which is available on
+> macOS. The Electron backend remains the cross-platform default.
+
 ## 💡 The Secret Sauce
 
 cc-caffeine uses an intelligent client-server approach:

@@ -168,8 +168,9 @@ const validatePid = async pid => {
         const isCaffeineServer =
           line.includes('caffeine server') || line.includes('caffeine.js server');
         const isElectron = line.includes('electron');
+        const isNative = line.includes('node') && !isElectron;
 
-        if (isCaffeineServer && isElectron) {
+        if (isCaffeineServer && (isElectron || isNative)) {
           resolve(true);
           return;
         }
