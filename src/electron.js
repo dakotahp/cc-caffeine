@@ -23,9 +23,10 @@ const loadElectron = () => {
     shell = electron.shell;
     isElectron = true;
   } catch (error) {
+    // Don't force-exit: the native backend runs without Electron, so a load
+    // failure here must not kill a native server. Let the caller decide.
     console.error('Failed to load Electron:', error.message);
     console.error('Make sure to use Electron: npx electron caffeine.js server');
-    process.exit(1);
   }
 };
 
