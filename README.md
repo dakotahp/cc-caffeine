@@ -124,15 +124,11 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
 
 ## 🎭 OpenCode Integration
 
-OpenCode has no external-command hooks, so cc-caffeine ships a thin in-process
-plugin that triggers the same CLI. OpenCode does not auto-load a plugin file
-just from its location on disk — register it in `opencode.json`'s `plugin`
-array, pointing at this repo's `opencode/cc-caffeine.mjs` by path. No need to
-copy the file anywhere.
+Using [OpenCode](https://opencode.ai) instead of (or alongside) Claude Code?
+cc-caffeine works there too, through a plugin instead of hooks.
 
-Global — loads for every OpenCode session, in every project (recommended;
-matches how the Claude Code hooks are configured once, globally). Edit
-`~/.config/opencode/opencode.json` (create it if it doesn't exist):
+**Setup:** open (or create) `~/.config/opencode/opencode.json` and add the
+plugin:
 
 ```json
 {
@@ -140,12 +136,11 @@ matches how the Claude Code hooks are configured once, globally). Edit
 }
 ```
 
-Project-local — only loads while OpenCode runs in this one project: add the
-same `plugin` entry to an `opencode.json` in that project instead.
+Replace `/absolute/path/to/cc-caffeine` with wherever you cloned this repo.
 
-OpenCode loads it at startup. Activity events refresh the session; the
-existing server (auto-started on the first `caffeinate`) keeps the machine
-awake and releases it after the idle timeout.
+That's it. OpenCode picks up the plugin the next time it starts, and it
+behaves just like the Claude Code integration: activity keeps the session
+alive, and the server releases sleep prevention after the idle timeout.
 
 ## ⚙️ Configuration (Optional)
 
