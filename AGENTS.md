@@ -260,6 +260,23 @@ npm run format  # Format code with Prettier (if installed)
 npm run version # Show version information from package.json and plugin.json
 ```
 
+## Versioning
+
+Follows [SemVer](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+(`CHANGELOG.md`). Bump the version and add a changelog entry in the same PR as
+the change, not as a separate release step:
+
+- New capability, integration, or config option (backward-compatible) → **minor**
+- Bug fix, doc fix, or internal refactor with no behavior change → **patch**
+- Breaking change to CLI args, config shape, or the session file format → **major**
+  (rare pre-1.0; confirm with the user first)
+
+Unreleased work on a feature branch doesn't get its own bump per commit — one
+bump covers the whole feature when it ships.
+
+The version string is duplicated in `package.json` and
+`.claude-plugin/plugin.json`; update both together.
+
 ## Module Import Structure
 
 The application uses CommonJS modules with a clear dependency hierarchy:
