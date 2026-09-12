@@ -1,8 +1,8 @@
 # OpenCode Compatibility
 
-> Status: **implemented (D1)**. A thin OpenCode plugin triggers the existing
-> `cc-caffeine` CLI, so all session/server/idle-timeout logic stays in one place.
-> See "Implementation" below.
+> Status: **implemented (D1)**. A self-contained OpenCode plugin triggers the
+> existing `cc-caffeine` CLI, so all session/server/idle-timeout logic stays in
+> one place. See "Implementation" below.
 
 ## Context
 
@@ -76,25 +76,23 @@ not the catch-all `event` hook, so nothing fires twice.
 
 ### D1 — Thin plugin that calls the existing CLI (implemented)
 
-The plugin is a thin trigger; all logic stays in the project. The core lives in
-`src/opencode.js` (CommonJS, shared with the Claude Code path) and is wrapped by
-an ESM adapter `opencode/cc-caffeine.mjs` that OpenCode's plugin loader
-understands.
+The plugin is a thin trigger; all logic stays in the project. It ships as a
+single, self-contained ESM file, `opencode/cc-caffeine.mjs` — the exact file
+OpenCode loads, with no relative imports of its own. That's a deliberate
+constraint, not a style choice: OpenCode loads one plugin file from wherever
+it's installed (`.opencode/plugins/`, `~/.config/opencode/plugins/`, or an npm
+package), and an earlier version split the logic into a `src/opencode.js`
+core that the plugin file `require()`'d by a path relative to itself. That
+path only resolved when the file stayed at `opencode/cc-caffeine.mjs` in this
+repo; once copied to `.opencode/plugins/cc-caffeine.mjs` — exactly what the
+install instructions below tell you to do — the relative `require` pointed at
+a `src/` directory that doesn't exist there, so OpenCode's plugin load threw
+at startup and no hook ever ran. Folding the core into the one file OpenCode
+actually loads removes that failure mode: there's nothing left to resolve
+relative to a location that can move.
 
 ```js
-// opencode/cc-caffeine.mjs — the ESM adapter OpenCode loads
-import { createRequire } from 'node:module'
-const require = createRequire(import.meta.url)
-const { createHooks } = require('../src/opencode.js')
-
-export const CcCaffeine = async ctx => createHooks(ctx)
-export default CcCaffeine
-```
-
-`createHooks(ctx)` returns the hooks object:
-
-```js
-// src/opencode.js (abridged)
+// opencode/cc-caffeine.mjs — self-contained, no relative imports
 const ACTIVATE = new Set(['session.created', 'command.executed', 'message.updated'])
 const DEACTIVATE = new Set(['session.idle', 'session.deleted'])
 
@@ -112,6 +110,9 @@ const createHooks = ctx => {
     'tool.execute.after': async input => handle('caffeinate', extractSessionId(null, input))
    }
 }
+
+export const CcCaffeine = async ctx => createHooks(ctx)
+export default CcCaffeine
 ```
 
 `run()` spawns the CLI (`node ./caffeine.js` when shipped in the repo, else
@@ -138,7 +139,7 @@ its own logic), bypassing the CLI/server.
 
 1. **Session id in events.** Confirmed against the `opencode-notifier` and
    `opencode-wakatime` plugins: the id lives in different places per event shape.
-   `extractSessionId` in `src/opencode.js` handles all of them:
+   `extractSessionId` in `opencode/cc-caffeine.mjs` handles all of them:
     - `session.created` / `session.deleted` / `session.updated` → `properties.info.id`
     - `session.idle` / `session.status` / `command.executed` → `properties.sessionID`
     - `message.updated` → `properties.info.sessionID`
@@ -150,12 +151,13 @@ its own logic), bypassing the CLI/server.
    hooks, so not a regression. The server's idle timeout is the real release path,
    so the per-event spawns only refresh `last_activity`. No debounce needed.
 3. **`$` vs `spawn`.** Standardized on `child_process.spawn` (via the injectable
-   `setSpawnFn`) rather than Bun's `$`, so the core stays runtime-agnostic and
-   testable without a real spawn. The adapter uses `createRequire` to bridge the
-   CommonJS core into OpenCode's ESM loader.
+   `setSpawnFn`) rather than Bun's `$`, so the plugin stays runtime-agnostic and
+   testable without a real spawn.
 4. **Where the plugin ships.** Two paths, both supported:
-    - **Project-local:** drop `opencode/cc-caffeine.mjs` into
-      `.opencode/plugins/` (or `~/.config/opencode/plugins/`).
+    - **Project-local:** copy `opencode/cc-caffeine.mjs` into
+      `.opencode/plugins/` (or `~/.config/opencode/plugins/`). Because the file
+      is self-contained, a plain copy — to either location — always works; there
+      is no relative import that can break by moving the file.
     - **npm:** reference the package from `opencode.json`'s `plugin` array. The
       `resolveCli()` helper prefers the sibling `caffeine.js` (repo install) and
       falls back to `npx cc-caffeine` (npm install).
@@ -165,10 +167,9 @@ its own logic), bypassing the CLI/server.
 
 ## Implementation
 
-- `src/opencode.js` — framework-agnostic core: `actionForEvent`, `extractSessionId`,
-   `resolveCli`, `run`, `createHooks`, `setSpawnFn`.
-- `opencode/cc-caffeine.mjs` — ESM adapter OpenCode loads; bridges the core via
-   `createRequire`.
+- `opencode/cc-caffeine.mjs` — the self-contained ESM module OpenCode loads:
+   `actionForEvent`, `extractSessionId`, `resolveCli`, `run`, `createHooks`,
+   `setSpawnFn`.
 - `test/opencode.test.js` — unit tests for the mapping, id extraction, and the
    spawn/stdin flow (injectable spawner).
 
