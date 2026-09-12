@@ -1,9 +1,13 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const loadOpencode = () => {
-  delete require.cache[require.resolve('../src/opencode')];
-  return require('../src/opencode');
+// The plugin is an ESM module (OpenCode's loader requires it), so load it via
+// dynamic import. A unique query string per call gives a fresh module instance,
+// the ESM equivalent of the old `delete require.cache`, so `setSpawnFn` stays
+// isolated between tests.
+const loadOpencode = async () => {
+  const mod = await import(`../opencode/cc-caffeine.mjs?bust=${Date.now()}-${Math.random()}`);
+  return mod;
 };
 
 const makeFakeChild = () => {
@@ -32,23 +36,23 @@ const makeFakeChild = () => {
   };
 };
 
-test('actionForEvent maps activity events to caffeinate', () => {
-  const { actionForEvent } = loadOpencode();
+test('actionForEvent maps activity events to caffeinate', async () => {
+  const { actionForEvent } = await loadOpencode();
 
   assert.strictEqual(actionForEvent('session.created'), 'caffeinate');
   assert.strictEqual(actionForEvent('command.executed'), 'caffeinate');
   assert.strictEqual(actionForEvent('message.updated'), 'caffeinate');
 });
 
-test('actionForEvent maps idle/end events to uncaffeinate', () => {
-  const { actionForEvent } = loadOpencode();
+test('actionForEvent maps idle/end events to uncaffeinate', async () => {
+  const { actionForEvent } = await loadOpencode();
 
   assert.strictEqual(actionForEvent('session.idle'), 'uncaffeinate');
   assert.strictEqual(actionForEvent('session.deleted'), 'uncaffeinate');
 });
 
-test('actionForEvent returns null for irrelevant events', () => {
-  const { actionForEvent } = loadOpencode();
+test('actionForEvent returns null for irrelevant events', async () => {
+  const { actionForEvent } = await loadOpencode();
 
   assert.strictEqual(actionForEvent('tool.execute.before'), null);
   assert.strictEqual(actionForEvent('tool.execute.after'), null);
@@ -56,22 +60,22 @@ test('actionForEvent returns null for irrelevant events', () => {
   assert.strictEqual(actionForEvent('unknown.event'), null);
 });
 
-test('extractSessionId reads properties.info.id for lifecycle events', () => {
-  const { extractSessionId } = loadOpencode();
+test('extractSessionId reads properties.info.id for lifecycle events', async () => {
+  const { extractSessionId } = await loadOpencode();
 
   const event = { type: 'session.created', properties: { info: { id: 'sess-1' } } };
   assert.strictEqual(extractSessionId(event), 'sess-1');
 });
 
-test('extractSessionId reads properties.sessionID for idle events', () => {
-  const { extractSessionId } = loadOpencode();
+test('extractSessionId reads properties.sessionID for idle events', async () => {
+  const { extractSessionId } = await loadOpencode();
 
   const event = { type: 'session.idle', properties: { sessionID: 'sess-2' } };
   assert.strictEqual(extractSessionId(event), 'sess-2');
 });
 
-test('extractSessionId reads properties.info.sessionID for message events', () => {
-  const { extractSessionId } = loadOpencode();
+test('extractSessionId reads properties.info.sessionID for message events', async () => {
+  const { extractSessionId } = await loadOpencode();
 
   const event = {
     type: 'message.updated',
@@ -80,21 +84,21 @@ test('extractSessionId reads properties.info.sessionID for message events', () =
   assert.strictEqual(extractSessionId(event), 'sess-3');
 });
 
-test('extractSessionId reads input.sessionID for tool events', () => {
-  const { extractSessionId } = loadOpencode();
+test('extractSessionId reads input.sessionID for tool events', async () => {
+  const { extractSessionId } = await loadOpencode();
 
   assert.strictEqual(extractSessionId(null, { sessionID: 'sess-4' }), 'sess-4');
 });
 
-test('extractSessionId returns null when no id is present', () => {
-  const { extractSessionId } = loadOpencode();
+test('extractSessionId returns null when no id is present', async () => {
+  const { extractSessionId } = await loadOpencode();
 
   assert.strictEqual(extractSessionId({ type: 'session.idle', properties: {} }), null);
   assert.strictEqual(extractSessionId(null, {}), null);
 });
 
-test('createHooks returns the expected hook keys', () => {
-  const { createHooks } = loadOpencode();
+test('createHooks returns the expected hook keys', async () => {
+  const { createHooks } = await loadOpencode();
 
   const hooks = createHooks({ directory: '/tmp/proj' });
 
@@ -104,7 +108,7 @@ test('createHooks returns the expected hook keys', () => {
 });
 
 test('event hook caffeinates on session.created with the session id', async () => {
-  const { createHooks, setSpawnFn } = loadOpencode();
+  const { createHooks, setSpawnFn } = await loadOpencode();
   const fake = makeFakeChild();
   setSpawnFn(() => fake.child);
 
@@ -115,7 +119,7 @@ test('event hook caffeinates on session.created with the session id', async () =
 });
 
 test('event hook uncaffeinates on session.idle with the session id', async () => {
-  const { createHooks, setSpawnFn } = loadOpencode();
+  const { createHooks, setSpawnFn } = await loadOpencode();
   const fake = makeFakeChild();
   setSpawnFn(() => fake.child);
 
@@ -126,7 +130,7 @@ test('event hook uncaffeinates on session.idle with the session id', async () =>
 });
 
 test('event hook ignores irrelevant events without spawning', async () => {
-  const { createHooks, setSpawnFn } = loadOpencode();
+  const { createHooks, setSpawnFn } = await loadOpencode();
   let spawnCount = 0;
   setSpawnFn(() => {
     spawnCount++;
@@ -140,7 +144,7 @@ test('event hook ignores irrelevant events without spawning', async () => {
 });
 
 test('event hook ignores assistant message.updated (only user activity caffeinates)', async () => {
-  const { createHooks, setSpawnFn } = loadOpencode();
+  const { createHooks, setSpawnFn } = await loadOpencode();
   let spawnCount = 0;
   setSpawnFn(() => {
     spawnCount++;
@@ -156,7 +160,7 @@ test('event hook ignores assistant message.updated (only user activity caffeinat
 });
 
 test('tool.execute.before caffeinates using the input session id', async () => {
-  const { createHooks, setSpawnFn } = loadOpencode();
+  const { createHooks, setSpawnFn } = await loadOpencode();
   const fake = makeFakeChild();
   setSpawnFn(() => fake.child);
 
@@ -167,7 +171,7 @@ test('tool.execute.before caffeinates using the input session id', async () => {
 });
 
 test('event hook falls back to the directory basename when no id is present', async () => {
-  const { createHooks, setSpawnFn } = loadOpencode();
+  const { createHooks, setSpawnFn } = await loadOpencode();
   const fake = makeFakeChild();
   setSpawnFn(() => fake.child);
 
@@ -178,7 +182,7 @@ test('event hook falls back to the directory basename when no id is present', as
 });
 
 test('run resolves on spawn error without throwing', async () => {
-  const { run, setSpawnFn } = loadOpencode();
+  const { run, setSpawnFn } = await loadOpencode();
   setSpawnFn(() => {
     throw new Error('spawn failed');
   });
