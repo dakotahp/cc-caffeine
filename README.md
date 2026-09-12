@@ -142,14 +142,6 @@ project's `.opencode/plugins/` directory — OpenCode only loads project-local
 plugins while running in that project, so this only makes sense if you don't
 want the machine kept awake for other projects.
 
-Or reference the npm package from `opencode.json` instead of copying the file:
-
-```json
-{
-  "plugin": ["cc-caffeine"]
-}
-```
-
 ## ⚙️ Configuration (Optional)
 
 cc-caffeine works out of the box with **zero configuration** — the default
