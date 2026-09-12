@@ -19,7 +19,6 @@ const loadOpencode = async () => {
 };
 
 const makeFakeChild = () => {
-  const handlers = {};
   let stdin = '';
   let args = null;
   const child = {
@@ -30,14 +29,16 @@ const makeFakeChild = () => {
       },
       end: () => {}
     },
+    // Fire close on the next tick after it's registered, not on a tick
+    // scheduled up front, so the run() promise resolves regardless of how
+    // long createHooks's dynamic import takes to register the listener.
     on: (event, cb) => {
-      handlers[event] = cb;
+      if (event === 'close') {
+        process.nextTick(cb);
+      }
       return child;
     }
   };
-  // Fire close on the next tick so the run() promise resolves without the test
-  // having to drive it manually (stdin is written synchronously before close).
-  process.nextTick(() => handlers.close && handlers.close());
   return {
     testSpawnFn: (cmd, spawnArgs) => {
       args = spawnArgs;
