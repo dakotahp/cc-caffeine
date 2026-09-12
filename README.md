@@ -1,21 +1,6 @@
 # cc-caffeine ☕⚡
 
-**Transform your 9-to-5 into 9:30-to-4:30.** Arrive 30min later, leave 30min earlier, while getting the same work done because **Claude Code stays powered in your backpack while commuting.**
-
-Work smarter, not longer.
-
-## 🌍 The Modern Developer's Freedom
-
-Tired of your laptop going to sleep during that perfect coding session because you left your desk 10 minutes? Frustrated when Claude Code disconnects mid-commute because your computer decided it was "idle"?
-
-**cc-caffeine is your personal rebellion against screen timeout.** It keeps your machine awake so you can:
-
-- 🚇 Code on the RER between Paris and suburbs
-- ☕ Sip a latte at Starbucks during 3-hour debugging sessions
-- 🚴‍♂️ Pedal to the coworking space while maintaining your active connection
-- 📱 Respond to your girlfriend calls during work hours, without Claude Code interruptions
-
-<img width="4032" height="1152" alt="image" src="https://github.com/user-attachments/assets/e1db7f4c-bd49-4ec5-8da4-2595c7f9b80a" />
+**Transform your 9-to-5 into 9:30-to-4:30.** Arrive 30min later, leave 30min earlier, while getting the same work done because Claude Code keeps your laptop awake while working.
 
 ## 🎯 Installation
 
@@ -26,19 +11,13 @@ Add this repo as a Claude Code plugin marketplace, then install the plugin:
 /plugin install cc-caffeine@cc-caffeine
 ```
 
-Installing the plugin registers its hooks automatically, so no manual hook
-configuration is needed. The hooks run the plugin's own bundled `caffeine.js`
-(via `${CLAUDE_PLUGIN_ROOT}`), so no `npx` fetch is required.
+Installing the plugin registers its hooks automatically, so no manual hook configuration is needed. The hooks run the plugin's own bundled `caffeine.js`(via `${CLAUDE_PLUGIN_ROOT}`), so no `npx` fetch is required.
 
 *cc-caffine status*:
 
 ![](./assets/icon-coffee-empty.png) - Claude Code is idle
 
 ![](./assets/icon-coffee-full.png) - Claude Code is working hard
-
-## 🌟 The Nomad Developer Manifesto
-
-> "I'll never choose between coding and traveling again. With cc-caffeine, I can do both. My laptop will never sleep while I traverse cities in 5G, my Claude Code will stay connected in my backpack, and my productivity will soar. The future of mobile development is here, and it smells like coffee."
 
 ## ✨ Why It's Pure Magic
 
@@ -76,8 +55,7 @@ configuration is needed. The hooks run the plugin's own bundled `caffeine.js`
 
 Hooks will be configured automatically if you import the project as a Claude Code plugin.
 
-Otherwise, configure your Claude Code hooks manually, pointing each command at the
-local `caffeine.js` (replace `/path/to/cc-caffeine` with your checkout):
+Otherwise, configure your Claude Code hooks manually, pointing each command at the local `caffeine.js` (replace `/path/to/cc-caffeine` with your checkout):
 
 ```json
 {
@@ -144,6 +122,26 @@ local `caffeine.js` (replace `/path/to/cc-caffeine` with your checkout):
 }
 ```
 
+## 🎭 OpenCode Integration
+
+Using [OpenCode](https://opencode.ai) instead of (or alongside) Claude Code?
+cc-caffeine works there too, through a plugin instead of hooks.
+
+**Setup:** open (or create) `~/.config/opencode/opencode.json` and add the
+plugin:
+
+```json
+{
+  "plugin": ["/absolute/path/to/cc-caffeine/opencode/cc-caffeine.mjs"]
+}
+```
+
+Replace `/absolute/path/to/cc-caffeine` with wherever you cloned this repo.
+
+That's it. OpenCode picks up the plugin the next time it starts, and it
+behaves just like the Claude Code integration: activity keeps the session
+alive, and the server releases sleep prevention after the idle timeout.
+
 ## ⚙️ Configuration (Optional)
 
 cc-caffeine works out of the box with **zero configuration** — the default
@@ -153,9 +151,7 @@ Electron backend needs nothing. To change behavior, create a config file at:
 ~/.claude/plugins/cc-caffeine/config.json
 ```
 
-The directory is created automatically on first run, but the file itself is not —
-create it by hand and add only the settings you want. Every setting is optional
-and falls back to the default below.
+The directory is created automatically on first run, but the file itself is not. Create it by hand and add only the settings you want. Every setting is optional and falls back to the default below.
 
 ```json
 {
@@ -169,13 +165,11 @@ and falls back to the default below.
 |---------|---------|-------------|
 | `session_timeout_minutes` | `15` | Minutes of inactivity before a session expires |
 | `icon_theme` | `"orange"` | Tray icon theme: `"orange"` (colored) or `"monochrome"` (black/white, auto-adapts to macOS dark mode) |
-| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the OS `caffeinate` utility, no Electron, no tray) |
+| `sleep_backend` | `"electron"` | Sleep-prevention mechanism: `"electron"` (powerSaveBlocker + system tray) or `"native"` (the MacOS `caffeinate` utility, no Electron, no tray) |
 
 ### Switching to the native backend
 
-Set `sleep_backend` to `"native"` to prevent sleep via the OS `caffeinate`
-utility instead of Electron. The server then runs as a plain Node process with
-no system tray — useful when you don't want Electron at all.
+Set `sleep_backend` to `"native"` to prevent sleep via the MacOS `caffeinate` utility instead of Electron. The server then runs as a plain Node process with no system tray — useful when you don't want Electron at all.
 
 ```json
 {
@@ -183,8 +177,7 @@ no system tray — useful when you don't want Electron at all.
 }
 ```
 
-> The native backend relies on the `caffeinate` utility, which is available on
-> macOS. The Electron backend remains the cross-platform default.
+> The native backend relies on the `caffeinate` utility, which is available on macOS. The Electron backend remains the cross-platform default.
 
 ## 💡 The Secret Sauce
 
