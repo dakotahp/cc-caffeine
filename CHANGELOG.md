@@ -5,6 +5,19 @@ All notable changes to cc-caffeine are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-09-11
+
+### Added
+
+- **OpenCode plugin** (`opencode/cc-caffeine.mjs`): a self-contained ESM plugin
+  that maps OpenCode's session/tool/message events to the same
+  `caffeinate`/`uncaffeinate` CLI calls the Claude Code hooks use, so
+  session/server/idle-timeout logic stays shared between both integrations.
+  Install globally (`~/.config/opencode/plugins/`) to cover every project, or
+  project-locally (`.opencode/plugins/`) to scope it to one.
+- Tests for the OpenCode event mapping, session-id extraction, and the
+  spawn/stdin flow (`test/opencode.test.js`).
+
 ## [0.4.0] - 2026-09-11
 
 ### Added
