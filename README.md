@@ -125,22 +125,27 @@ Otherwise, configure your Claude Code hooks manually, pointing each command at t
 ## 🎭 OpenCode Integration
 
 OpenCode has no external-command hooks, so cc-caffeine ships a thin in-process
-plugin that triggers the same CLI. Install it globally so it loads no matter
-which project you run OpenCode from:
+plugin that triggers the same CLI. OpenCode does not auto-load a plugin file
+just from its location on disk — register it in `opencode.json`'s `plugin`
+array, pointing at this repo's `opencode/cc-caffeine.mjs` by path. No need to
+copy the file anywhere.
 
-```bash
-mkdir -p ~/.config/opencode/plugins
-cp opencode/cc-caffeine.mjs ~/.config/opencode/plugins/cc-caffeine.mjs
+Global — loads for every OpenCode session, in every project (recommended;
+matches how the Claude Code hooks are configured once, globally). Edit
+`~/.config/opencode/opencode.json` (create it if it doesn't exist):
+
+```json
+{
+  "plugin": ["/absolute/path/to/cc-caffeine/opencode/cc-caffeine.mjs"]
+}
 ```
 
-OpenCode loads it at startup. Activity events refresh the session and the existing
-server (auto-started on the first `caffeinate`) keeps the machine awake, releasing
-it after the idle timeout.
+Project-local — only loads while OpenCode runs in this one project: add the
+same `plugin` entry to an `opencode.json` in that project instead.
 
-To scope cc-caffeine to a single project instead, drop the same file in that
-project's `.opencode/plugins/` directory — OpenCode only loads project-local
-plugins while running in that project, so this only makes sense if you don't
-want the machine kept awake for other projects.
+OpenCode loads it at startup. Activity events refresh the session; the
+existing server (auto-started on the first `caffeinate`) keeps the machine
+awake and releases it after the idle timeout.
 
 ## ⚙️ Configuration (Optional)
 

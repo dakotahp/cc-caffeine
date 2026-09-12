@@ -2,17 +2,26 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 // The plugin is an ESM module (OpenCode's loader requires it), so load it via
-// dynamic import. A unique query string per call gives a fresh module instance,
-// the ESM equivalent of the old `delete require.cache`, so `setSpawnFn` stays
-// isolated between tests.
+// dynamic import. A unique query string per call gives a fresh module
+// instance so spawn state stays isolated between tests.
+//
+// The module exports only `default` — no other named exports — because
+// OpenCode's plugin loader (as of 1.18.30) calls every exported value as a
+// plugin factory (https://github.com/anomalyco/opencode/issues/13543), so a
+// second export would crash real usage. That means these tests can't reach
+// internals like `actionForEvent` or `extractSessionId` directly; they drive
+// the plugin the same way OpenCode does; through the hooks object the
+// default export returns, injecting a fake spawn via the `testSpawnFn`
+// plugin option.
 const loadOpencode = async () => {
   const mod = await import(`../opencode/cc-caffeine.mjs?bust=${Date.now()}-${Math.random()}`);
-  return mod;
+  return mod.default;
 };
 
 const makeFakeChild = () => {
   const handlers = {};
   let stdin = '';
+  let args = null;
   const child = {
     stdin: {
       write: chunk => {
@@ -30,77 +39,22 @@ const makeFakeChild = () => {
   // having to drive it manually (stdin is written synchronously before close).
   process.nextTick(() => handlers.close && handlers.close());
   return {
-    child,
-    handlers,
-    getStdin: () => stdin
+    testSpawnFn: (cmd, spawnArgs) => {
+      args = spawnArgs;
+      return child;
+    },
+    getStdin: () => stdin,
+    getAction: () => args && args[args.length - 1]
   };
 };
 
-test('actionForEvent maps activity events to caffeinate', async () => {
-  const { actionForEvent } = await loadOpencode();
-
-  assert.strictEqual(actionForEvent('session.created'), 'caffeinate');
-  assert.strictEqual(actionForEvent('command.executed'), 'caffeinate');
-  assert.strictEqual(actionForEvent('message.updated'), 'caffeinate');
-});
-
-test('actionForEvent maps idle/end events to uncaffeinate', async () => {
-  const { actionForEvent } = await loadOpencode();
-
-  assert.strictEqual(actionForEvent('session.idle'), 'uncaffeinate');
-  assert.strictEqual(actionForEvent('session.deleted'), 'uncaffeinate');
-});
-
-test('actionForEvent returns null for irrelevant events', async () => {
-  const { actionForEvent } = await loadOpencode();
-
-  assert.strictEqual(actionForEvent('tool.execute.before'), null);
-  assert.strictEqual(actionForEvent('tool.execute.after'), null);
-  assert.strictEqual(actionForEvent('session.status'), null);
-  assert.strictEqual(actionForEvent('unknown.event'), null);
-});
-
-test('extractSessionId reads properties.info.id for lifecycle events', async () => {
-  const { extractSessionId } = await loadOpencode();
-
-  const event = { type: 'session.created', properties: { info: { id: 'sess-1' } } };
-  assert.strictEqual(extractSessionId(event), 'sess-1');
-});
-
-test('extractSessionId reads properties.sessionID for idle events', async () => {
-  const { extractSessionId } = await loadOpencode();
-
-  const event = { type: 'session.idle', properties: { sessionID: 'sess-2' } };
-  assert.strictEqual(extractSessionId(event), 'sess-2');
-});
-
-test('extractSessionId reads properties.info.sessionID for message events', async () => {
-  const { extractSessionId } = await loadOpencode();
-
-  const event = {
-    type: 'message.updated',
-    properties: { info: { role: 'user', sessionID: 'sess-3' } }
-  };
-  assert.strictEqual(extractSessionId(event), 'sess-3');
-});
-
-test('extractSessionId reads input.sessionID for tool events', async () => {
-  const { extractSessionId } = await loadOpencode();
-
-  assert.strictEqual(extractSessionId(null, { sessionID: 'sess-4' }), 'sess-4');
-});
-
-test('extractSessionId returns null when no id is present', async () => {
-  const { extractSessionId } = await loadOpencode();
-
-  assert.strictEqual(extractSessionId({ type: 'session.idle', properties: {} }), null);
-  assert.strictEqual(extractSessionId(null, {}), null);
-});
+const createHooks = async (ctx, testSpawnFn) => {
+  const CcCaffeine = await loadOpencode();
+  return CcCaffeine(ctx, testSpawnFn ? { testSpawnFn } : undefined);
+};
 
 test('createHooks returns the expected hook keys', async () => {
-  const { createHooks } = await loadOpencode();
-
-  const hooks = createHooks({ directory: '/tmp/proj' });
+  const hooks = await createHooks({ directory: '/tmp/proj' });
 
   assert.ok(typeof hooks.event === 'function');
   assert.ok(typeof hooks['tool.execute.before'] === 'function');
@@ -108,84 +62,125 @@ test('createHooks returns the expected hook keys', async () => {
 });
 
 test('event hook caffeinates on session.created with the session id', async () => {
-  const { createHooks, setSpawnFn } = await loadOpencode();
   const fake = makeFakeChild();
-  setSpawnFn(() => fake.child);
+  const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
 
-  const hooks = createHooks({ directory: '/tmp/proj' });
   await hooks.event({ event: { type: 'session.created', properties: { info: { id: 'sess-1' } } } });
 
+  assert.strictEqual(fake.getAction(), 'caffeinate');
   assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'sess-1' });
 });
 
-test('event hook uncaffeinates on session.idle with the session id', async () => {
-  const { createHooks, setSpawnFn } = await loadOpencode();
+test('event hook caffeinates on command.executed with the session id', async () => {
   const fake = makeFakeChild();
-  setSpawnFn(() => fake.child);
+  const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
 
-  const hooks = createHooks({ directory: '/tmp/proj' });
-  await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 'sess-2' } } });
+  await hooks.event({ event: { type: 'command.executed', properties: { sessionID: 'sess-cmd' } } });
 
-  assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'sess-2' });
+  assert.strictEqual(fake.getAction(), 'caffeinate');
+  assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'sess-cmd' });
 });
 
-test('event hook ignores irrelevant events without spawning', async () => {
-  const { createHooks, setSpawnFn } = await loadOpencode();
-  let spawnCount = 0;
-  setSpawnFn(() => {
-    spawnCount++;
-    return makeFakeChild().child;
+test('event hook caffeinates on user message.updated with the session id', async () => {
+  const fake = makeFakeChild();
+  const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
+
+  await hooks.event({
+    event: { type: 'message.updated', properties: { info: { role: 'user', sessionID: 'sess-3' } } }
   });
 
-  const hooks = createHooks({ directory: '/tmp/proj' });
-  await hooks.event({ event: { type: 'session.status', properties: {} } });
-
-  assert.strictEqual(spawnCount, 0);
+  assert.strictEqual(fake.getAction(), 'caffeinate');
+  assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'sess-3' });
 });
 
 test('event hook ignores assistant message.updated (only user activity caffeinates)', async () => {
-  const { createHooks, setSpawnFn } = await loadOpencode();
-  let spawnCount = 0;
-  setSpawnFn(() => {
-    spawnCount++;
-    return makeFakeChild().child;
-  });
+  const fake = makeFakeChild();
+  const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
 
-  const hooks = createHooks({ directory: '/tmp/proj' });
   await hooks.event({
     event: { type: 'message.updated', properties: { info: { role: 'assistant', sessionID: 's' } } }
   });
 
-  assert.strictEqual(spawnCount, 0);
+  assert.strictEqual(fake.getAction(), null);
+});
+
+test('event hook uncaffeinates on session.idle with the session id', async () => {
+  const fake = makeFakeChild();
+  const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
+
+  await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 'sess-2' } } });
+
+  assert.strictEqual(fake.getAction(), 'uncaffeinate');
+  assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'sess-2' });
+});
+
+test('event hook uncaffeinates on session.deleted', async () => {
+  const fake = makeFakeChild();
+  const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
+
+  await hooks.event({ event: { type: 'session.deleted', properties: { info: { id: 'sess-del' } } } });
+
+  assert.strictEqual(fake.getAction(), 'uncaffeinate');
+  assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'sess-del' });
+});
+
+test('event hook ignores irrelevant events without spawning', async () => {
+  const fake = makeFakeChild();
+  const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
+
+  await hooks.event({ event: { type: 'session.status', properties: {} } });
+  await hooks.event({ event: { type: 'unknown.event', properties: {} } });
+  // Tool events are handled by the named tool.execute.* hooks below, not the
+  // catch-all event hook, so the event hook must ignore them.
+  await hooks.event({ event: { type: 'tool.execute.before', properties: {} } });
+
+  assert.strictEqual(fake.getAction(), null);
 });
 
 test('tool.execute.before caffeinates using the input session id', async () => {
-  const { createHooks, setSpawnFn } = await loadOpencode();
   const fake = makeFakeChild();
-  setSpawnFn(() => fake.child);
+  const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
 
-  const hooks = createHooks({ directory: '/tmp/proj' });
   await hooks['tool.execute.before']({ sessionID: 'sess-4' });
 
+  assert.strictEqual(fake.getAction(), 'caffeinate');
   assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'sess-4' });
 });
 
-test('event hook falls back to the directory basename when no id is present', async () => {
-  const { createHooks, setSpawnFn } = await loadOpencode();
+test('tool.execute.after caffeinates using the input session id', async () => {
   const fake = makeFakeChild();
-  setSpawnFn(() => fake.child);
+  const hooks = await createHooks({ directory: '/tmp/proj' }, fake.testSpawnFn);
 
-  const hooks = createHooks({ directory: '/tmp/my-project' });
+  await hooks['tool.execute.after']({ sessionID: 'sess-5' });
+
+  assert.strictEqual(fake.getAction(), 'caffeinate');
+  assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'sess-5' });
+});
+
+test('event hook falls back to the directory basename when no id is present', async () => {
+  const fake = makeFakeChild();
+  const hooks = await createHooks({ directory: '/tmp/my-project' }, fake.testSpawnFn);
+
   await hooks.event({ event: { type: 'session.idle', properties: {} } });
 
   assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'my-project' });
 });
 
-test('run resolves on spawn error without throwing', async () => {
-  const { run, setSpawnFn } = await loadOpencode();
-  setSpawnFn(() => {
+test('event hook falls back to "opencode" when no id or directory is present', async () => {
+  const fake = makeFakeChild();
+  const hooks = await createHooks({}, fake.testSpawnFn);
+
+  await hooks.event({ event: { type: 'session.idle', properties: {} } });
+
+  assert.deepStrictEqual(JSON.parse(fake.getStdin()), { session_id: 'opencode' });
+});
+
+test('a spawn error does not reject the hook', async () => {
+  const hooks = await createHooks({ directory: '/tmp/proj' }, () => {
     throw new Error('spawn failed');
   });
 
-  await assert.doesNotReject(run('caffeinate', 'sess-1'));
+  await assert.doesNotReject(
+    hooks.event({ event: { type: 'session.created', properties: { info: { id: 'sess-1' } } } })
+  );
 });

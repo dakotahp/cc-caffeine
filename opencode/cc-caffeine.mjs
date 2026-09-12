@@ -13,8 +13,14 @@
  * OpenCode-only (the Claude Code path uses caffeine.js directly), so there is no
  * shared core to split out.
  *
- * The spawner is injectable (`setSpawnFn`) so the module can be tested without
- * spawning real processes, mirroring src/native.js.
+ * This file must also have exactly one export (`export default`). OpenCode's
+ * plugin loader (as of 1.18.30) iterates every exported value in a plugin
+ * module and invokes each one as a plugin factory, regardless of what it is
+ * (a known upstream bug: https://github.com/anomalyco/opencode/issues/13543).
+ * A second named export here — even a test-only helper — gets called the
+ * same way and crashes every prompt. Test injection goes through the second
+ * `options` argument OpenCode already passes to the plugin factory instead
+ * (see `testSpawnFn` below and test/opencode.test.js).
  */
 
 import fs from 'node:fs';
@@ -25,10 +31,6 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let spawnFn = spawn;
-
-const setSpawnFn = fn => {
-  spawnFn = fn;
-};
 
 // Activity events refresh last_activity (caffeinate); idle/end events drop the
 // session (uncaffeinate). The server's idle timeout is the real release path;
@@ -176,19 +178,14 @@ const createHooks = ctx => {
 };
 
 // OpenCode loads this module and calls the exported plugin function with the
-// plugin context, expecting a hooks object back.
-export const CcCaffeine = async ctx => {
+// plugin context, expecting a hooks object back. `options.testSpawnFn` is a
+// private testing seam (see the file header comment); real OpenCode never
+// sets it, so production behavior is unaffected.
+const CcCaffeine = async (ctx, options) => {
+  if (options && typeof options.testSpawnFn === 'function') {
+    spawnFn = options.testSpawnFn;
+  }
   return createHooks(ctx);
 };
 
 export default CcCaffeine;
-
-// Exported for testing.
-export {
-  createHooks,
-  actionForEvent,
-  extractSessionId,
-  resolveCli,
-  run,
-  setSpawnFn
-};
