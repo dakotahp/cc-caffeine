@@ -1,5 +1,8 @@
 # See http://help.github.com/ignore-files/ for more about ignoring files.
 
+# local OpenCode project-plugin install used for testing (see README)
+.opencode/
+
 # compiled output
 /dist
 /tmp
